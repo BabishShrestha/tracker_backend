@@ -85,6 +85,41 @@ function sendFcmMessage(fcmMessage) {
   });
 }
 exports.sendFcmMessage = sendFcmMessage;
+async function monitorDeviceStatus() {
+  const snapshot = await db.collection('Users').get();
+  snapshot.forEach(async (doc) => {
+    const data = doc.data();
+    const status = data.status;
+    const timestamp = new Date(data.timestamp);
+    const currentTime = new Date();
+    const timeDifference = (currentTime - timestamp) / 1000 / 60; // Difference in minutes
+
+    if (status === 'offline' && timeDifference > 5) { // Assuming 5 minutes as the threshold
+      const userId = doc.id;
+
+      const fcmMessage = {
+        "message": {
+          "topic": "tracer",
+          "notification": {
+            "title": "Tracer Offline",
+            "body": `Device for user ${userId} has gone offline.`
+          }
+        }
+      };
+
+      try {
+        const response = await sendFcmMessage(fcmMessage);
+        console.log('FCM message sent successfully:', response);
+      } catch (err) {
+        console.error('Error sending FCM message:', err);
+      }
+    }
+  });
+}
+
+exports.monitorDeviceStatus = monitorDeviceStatus;
+// Schedule the monitor function
+setInterval(monitorDeviceStatus, 60000);
 /**
  * Construct a JSON object that will be used to customize
  * the messages sent to iOS and Android devices.
